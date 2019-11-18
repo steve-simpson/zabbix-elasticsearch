@@ -1,15 +1,13 @@
 """ Tests """
 
+import argparse
 from zabbix_elasticsearch.zabbix_elasticsearch import parse_conf
 
 
-class TestArgParse:
-    """ Test that default config file is read """
+class TestZabbixElasticsearch:
+    """ Test Zabbix Elasticsearch"""
 
-    def test_parse_conf(self):
-        """ Parse default arguments and check for the defaults values in config file """
+    def test_argparse_object(self):
+        """ Simple test that asserts that 'args' is an argparse object """
         args = parse_conf()
-        # Ensure using the default configuration
-        assert args.conf_file == "docs/default.conf"
-        # Ensure loglevel is set correctly
-        assert args.loglevel == 'INFO'
+        assert isinstance(args, argparse.Namespace)
