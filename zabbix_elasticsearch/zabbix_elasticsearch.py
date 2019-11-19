@@ -145,7 +145,7 @@ class ESWrapper:
     """Functions to call Elasticsearch API"""
     def __init__(self, args):
         # Disable warning about SSL certs
-        if args.disable_ssl_warning == 'true':
+        if args.disable_ssl_warning.lower() == 'true':
             urllib3.disable_warnings()
 
         self.es_configuration = {}
@@ -156,8 +156,8 @@ class ESWrapper:
         self.es_configuration["scheme"] = args.httpscheme
         self.es_configuration["port"] = int(args.port)
 
-        self.es_configuration["sniff_on_start"] = args.sniffonstart
-        self.es_configuration["sniff_on_connection_fail"] = args.sniffonconnectionfail
+        self.es_configuration["sniff_on_start"] = args.sniffonstart.lower()
+        self.es_configuration["sniff_on_connection_fail"] = args.sniffonconnectionfail.lower()
         self.es_configuration["sniffer_timeout"] = int(args.sniffertimeout)
 
         # Build SSL options if SSL_enabled
