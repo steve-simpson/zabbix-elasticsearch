@@ -59,9 +59,9 @@ mkdir -p /etc/zabbix-elasticsearch # Make new config directory
 cp ~/.virtualenvs/zabbix-elasticsearch-test/docs/default.conf /etc/zabbix-elasticsearch/zabbix-elasticsearch.conf
 ```
 
-That's it! Here's a usage example to grab the cluster status.  The `--api` and `--metric` options will be fully documented in time.
+That's it! Here's a usage example to grab the cluster status.  The `--api`, `--endpoint` and `--metric` options will be fully documented in time.
 ```
-zabbix_elasticsearch -c /etc/zabbix-elasticsearch/zabbix-elasticsearch.conf --api cluster_stats --metric status
+zabbix_elasticsearch -c /etc/zabbix-elasticsearch/zabbix-elasticsearch.conf --api cluster --endpoint stats --metric status
 [19/11/2019 12:03:03] INFO GET http://localhost:9200/_nodes/_all/http [status:200 request:0.004s]
 [19/11/2019 12:03:03] INFO GET http://172.17.0.2:9200/_cluster/stats [status:200 request:0.005s]
 green
