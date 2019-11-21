@@ -17,6 +17,7 @@ def parse_conf(argv=None):
     """Read configuration parameters from config file and configure argparse"""
     # Do argv default this way, as doing it in the functional
     # declaration sets it at compile time.
+
     if argv is None:
         argv = sys.argv
 
@@ -63,7 +64,6 @@ def parse_conf(argv=None):
             'cluster'
         ]
     )
-    # These will need to be split into subparsers
     parser.add_argument(
         "--endpoint",
         help="specify API",
@@ -99,6 +99,7 @@ def parse_conf(argv=None):
         help="comma seperated list of hosts",
     )
     args = parser.parse_args(remaining_argv)
+
     return args
 
 def configure_logging(level, logstdout, logdir, logfilename):
@@ -149,6 +150,21 @@ def configure_logging(level, logstdout, logdir, logfilename):
             sys.exit(1)
 
     return logging
+
+def validate_args(args):
+    """Validate the CLI arguments"""
+    choices_matrix = {
+        'cluster': [
+            'stats',
+            'health'
+        ]
+    }
+
+    # Lookup the args endpoint to ensure it is valid for the requested api
+    if args.endpoint not in choices_matrix.get(args.api, args.endpoint):
+        logging.error("'%s' is not a valid endpoint for the '%s' api. "
+                      "Terminating", args.endpoint, args.api)
+        sys.exit(1)
 
 class ESWrapper:
     """Functions to call Elasticsearch API"""
@@ -222,8 +238,9 @@ class ESWrapper:
 
         try:
             return flattened_response[metric]
-        except KeyError as err:
-            logging.error("KeyError: %s. Terminating", err)
+        except KeyError:
+            logging.error("KeyError: '%s' is not a valid metric for the '%s' endpoint. "
+                          "Terminating", metric, endpoint)
             sys.exit(1)
         logging.info("'%s': %s. CLOSING", metric, flattened_response[metric])
         sys.exit(0)
@@ -236,6 +253,7 @@ def main(argv=None):
 
     args = parse_conf()
     configure_logging(args.loglevel, args.logstdout, args.logdir, args.logfilename)
+    validate_args(args)
     es_wrapper = ESWrapper(args)
 
     try:
