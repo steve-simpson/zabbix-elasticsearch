@@ -60,7 +60,16 @@ def parse_conf(argv=None):
         "--api",
         help="specify API",
         choices=[
-            'cluster_stats'
+            'cluster'
+        ]
+    )
+    # These will need to be split into subparsers
+    parser.add_argument(
+        "--endpoint",
+        help="specify API",
+        choices=[
+            'stats',
+            'health',
         ]
     )
     parser.add_argument(
@@ -94,17 +103,17 @@ def parse_conf(argv=None):
 
 def configure_logging(level, logstdout, logdir, logfilename):
     """Configure Logging"""
-    if level.upper() == 'DEBUG':
-        log_level = logging.DEBUG
-    elif level.upper() == 'INFO':
-        log_level = logging.INFO
-    elif level.upper() == 'WARNING':
-        log_level = logging.WARNING
-    elif level.upper() == 'ERROR':
-        log_level = logging.ERROR
-    elif level.upper() == 'CRITICAL':
-        log_level = logging.CRITICAL
-
+    try:
+        log_level = getattr(logging, level.upper())
+    except AttributeError as err:
+        logging.basicConfig(
+            stream=sys.stdout,
+            format='[%(asctime)s] %(levelname)s %(message)s',
+            datefmt='%d/%m/%Y %I:%M:%S',
+            level='INFO'
+        )
+        logging.error(err)
+        sys.exit(1)
 
     if logstdout.lower() == 'true':
         # Log to stdout
@@ -201,9 +210,9 @@ class ESWrapper:
                 items.append((new_key, value))
         return dict(items)
 
-    def cluster_stats(self, metric):
-        """GET CLUSTER STATS"""
-        response = self.es_config.cluster.stats()
+    def cluster(self, endpoint, metric):
+        """GET CLUSTER METRICS"""
+        response = getattr(self.es_config.cluster, endpoint)()
         flattened_response = self.convert_flatten(response)
 
         # Handle "null" metrics
@@ -212,12 +221,13 @@ class ESWrapper:
             sys.exit(1)
 
         try:
-            print(flattened_response[metric])
+            return flattened_response[metric]
         except KeyError as err:
             logging.error("KeyError: %s. Terminating", err)
             sys.exit(1)
         logging.info("'%s': %s. CLOSING", metric, flattened_response[metric])
         sys.exit(0)
+
 
 def main(argv=None):
     """Main Execution path"""
@@ -225,18 +235,24 @@ def main(argv=None):
         argv = sys.argv
 
     args = parse_conf()
+    configure_logging(args.loglevel, args.logstdout, args.logdir, args.logfilename)
+    es_wrapper = ESWrapper(args)
+
     try:
-        configure_logging(args.loglevel, args.logstdout, args.logdir, args.logfilename)
-    except AttributeError:
-        print("ERROR Unable to configure logging. Ensure logging parameters "
-              "are set in the configuration file or using the command line options. "
-              "Terminating.")
+        result = getattr(es_wrapper, args.api)(args.endpoint, args.metric)
+        print(result)
+        sys.exit(0)
+    except AttributeError as err:
+        logging.error(err)
         sys.exit(1)
-    if args.api == "cluster_stats":
-        ESWrapper(args).cluster_stats(args.metric)
-    else:
-        logging.error("'--api' must be specified")
-        sys.exit(1)
+
+    # if args.api == "cluster_stats":
+    #     ESWrapper(args).cluster_stats(args.metric)
+    # elif args.api == "cluster_health":
+    #     ESWrapper(args).cluster_health(args.metric)
+    # else:
+    #     logging.error("'--api' must be specified")
+    #     sys.exit(1)
 
 
 if __name__ == "__main__":
