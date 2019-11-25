@@ -7,7 +7,7 @@ import sys
 import logging
 import argparse
 from distutils.util import strtobool
-from configparser import ConfigParser
+import configparser
 from collections import MutableMapping
 from elasticsearch import Elasticsearch, exceptions
 import urllib3
@@ -42,12 +42,23 @@ def parse_conf(argv=None):
     defaults = {}
 
     if args.conf_file:
-        config = ConfigParser()
-        config.read([args.conf_file])
+        print(args.conf_file)
+        try:
+            with open(args.conf_file):
+                config = configparser.ConfigParser()
+                config.read([args.conf_file])
+        except IOError as err:
+            print(err)
+            sys.exit(1)
+
         # Not the cleanest solution.
         # Flattens the config into a single argparse namespace
-        defaults.update(dict(config.items("GLOBAL")))
-        defaults.update(dict(config.items("ELASTICSEARCH")))
+        try:
+            defaults.update(dict(config.items("GLOBAL")))
+            defaults.update(dict(config.items("ELASTICSEARCH")))
+        except configparser.NoSectionError as err:
+            print(f"Configuration Error: {err}")
+            sys.exit(1)
 
     # Parse rest of arguments
     # Don't suppress add_help here so it will handle -h
