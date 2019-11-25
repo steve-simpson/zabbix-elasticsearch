@@ -2,7 +2,7 @@
 Zabbix Monitoring for Elasticsearch
 """
 
-import json
+
 import sys
 import logging
 import argparse
@@ -99,7 +99,6 @@ def parse_conf(argv=None):
         help="comma seperated list of hosts",
     )
     args = parser.parse_args(remaining_argv)
-
     return args
 
 def configure_logging(level, logstdout, logdir, logfilename):
