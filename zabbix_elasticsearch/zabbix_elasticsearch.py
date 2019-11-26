@@ -42,7 +42,6 @@ def parse_conf(argv=None):
     defaults = {}
 
     if args.conf_file:
-        print(args.conf_file)
         try:
             with open(args.conf_file):
                 config = configparser.ConfigParser()
@@ -72,7 +71,9 @@ def parse_conf(argv=None):
         "--api",
         help="specify API",
         choices=[
-            'cluster'
+            'cluster',
+            'indices',
+            'nodes'
         ]
     )
     parser.add_argument(
@@ -86,6 +87,10 @@ def parse_conf(argv=None):
     parser.add_argument(
         "--metric",
         help="specifiy metric"
+    )
+    parser.add_argument(
+        "--nodes",
+        help="limit results to a particular node. Multiple nodes should be comma seperated"
     )
     # These options are specified in the config file but can be overridden on the CLI
     parser.add_argument(
@@ -167,6 +172,12 @@ def validate_args(args):
         'cluster': [
             'stats',
             'health'
+        ],
+        'indices': [
+            'stats'
+        ],
+        'nodes': [
+            'stats'
         ]
     }
 
@@ -236,23 +247,27 @@ class ESWrapper:
                 items.append((new_key, value))
         return dict(items)
 
-    def cluster(self, endpoint, metric):
+    def send_requests(self, args):
         """GET CLUSTER METRICS"""
-        response = getattr(self.es_config.cluster, endpoint)()
+        api_call = getattr(self.es_config, args.api)
+        if args.nodes:
+            response = getattr(api_call, args.endpoint)(node_id=args.nodes)
+        else:
+            response = getattr(api_call, args.endpoint)()
         flattened_response = self.convert_flatten(response)
 
         # Handle "null" metrics
-        if metric is None:
+        if args.metric is None:
             logging.error("'--metric' has not been specified. Terminating")
             sys.exit(1)
 
         try:
-            return flattened_response[metric]
+            return flattened_response[args.metric]
         except KeyError:
             logging.error("KeyError: '%s' is not a valid metric for the '%s' endpoint. "
-                          "Terminating", metric, endpoint)
+                          "Terminating", args.metric, args.endpoint)
             sys.exit(1)
-        logging.info("'%s': %s. CLOSING", metric, flattened_response[metric])
+        logging.info("'%s': %s. CLOSING", args.metric, flattened_response[args.metric])
         sys.exit(0)
 
 
@@ -267,7 +282,7 @@ def main(argv=None):
     es_wrapper = ESWrapper(args)
 
     try:
-        result = getattr(es_wrapper, args.api)(args.endpoint, args.metric)
+        result = es_wrapper.send_requests(args)
         print(result)
         sys.exit(0)
     except AttributeError as err:
