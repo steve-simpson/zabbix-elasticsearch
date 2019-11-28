@@ -289,14 +289,6 @@ def main(argv=None):
         logging.error(err)
         sys.exit(1)
 
-    # if args.api == "cluster_stats":
-    #     ESWrapper(args).cluster_stats(args.metric)
-    # elif args.api == "cluster_health":
-    #     ESWrapper(args).cluster_health(args.metric)
-    # else:
-    #     logging.error("'--api' must be specified")
-    #     sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
