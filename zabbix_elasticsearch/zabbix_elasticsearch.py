@@ -3,6 +3,7 @@ Zabbix Monitoring for Elasticsearch
 """
 
 
+import json
 import sys
 import logging
 import argparse
@@ -125,7 +126,7 @@ def configure_logging(level, logstdout, logdir, logfilename):
         logging.basicConfig(
             stream=sys.stdout,
             format='[%(asctime)s] %(levelname)s %(message)s',
-            datefmt='%d/%m/%Y %I:%M:%S',
+            datefmt='%d/%m/%Y %H:%M:%S',
             level='INFO'
         )
         logging.error(err)
@@ -232,9 +233,32 @@ class ESWrapper:
             logging.error(err)
             sys.exit(1)
 
+    def node_discovery(self, response):
+        """Discover nodes"""
+        returned_data = {'data': []}
+
+        for key, value in response['nodes'].items():
+            returned_data['data'].append({
+                '{#NODE_ID}': key,
+                '{#NODE_NAME}': value['name'],
+                '{#NODE_IP}': value['ip']
+            })
+        return json.dumps(returned_data)
+
+    def index_discovery(self, response):
+        """Discover Indices"""
+        returned_data = {'data': []}
+
+        for key, value in response['indices'].items():
+            returned_data['data'].append({
+                '{#INDEX_NAME}': key,
+                '{#INDEX_UUID}': value['uuid'],
+            })
+        return json.dumps(returned_data)
+
     def convert_flatten(self, dictionary, parent_key='', sep='.'):
         """
-        Code to convert ini_dict to flattened dictionary.
+        Code to convert dict to flattened dictionary.
         Default seperater '.'
         """
         items = []
@@ -251,24 +275,30 @@ class ESWrapper:
         """GET CLUSTER METRICS"""
         api_call = getattr(self.es_config, args.api)
         if args.nodes:
-            response = getattr(api_call, args.endpoint)(node_id=args.nodes)
+            api_response = getattr(api_call, args.endpoint)(node_id=args.nodes)
         else:
-            response = getattr(api_call, args.endpoint)()
-        flattened_response = self.convert_flatten(response)
-
-        # Handle "null" metrics
-        if args.metric is None:
-            logging.error("'--metric' has not been specified. Terminating")
-            sys.exit(1)
+            api_response = getattr(api_call, args.endpoint)()
 
         try:
-            return flattened_response[args.metric]
+            # Handle "null" metrics
+            if args.metric is None:
+                logging.error("'--metric' has not been specified. Terminating")
+                sys.exit(1)
+            # Discovery
+            elif args.metric == "node_discovery" or args.metric == "index_discovery":
+                logging.info("Running discovery...")
+                response = getattr(self, args.metric)(api_response)
+                return response
+            # Get Metric
+            else:
+                response = self.convert_flatten(api_response)
+                logging.info("'%s': %s", args.metric, response[args.metric])
+                return response[args.metric]
+
         except KeyError:
             logging.error("KeyError: '%s' is not a valid metric for the '%s' endpoint. "
                           "Terminating", args.metric, args.endpoint)
             sys.exit(1)
-        logging.info("'%s': %s. CLOSING", args.metric, flattened_response[args.metric])
-        sys.exit(0)
 
 
 def main(argv=None):
