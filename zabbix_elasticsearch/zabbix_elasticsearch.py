@@ -74,7 +74,8 @@ def parse_conf(argv=None):
         choices=[
             'cluster',
             'indices',
-            'nodes'
+            'nodes',
+            'cat'
         ]
     )
     parser.add_argument(
@@ -83,15 +84,22 @@ def parse_conf(argv=None):
         choices=[
             'stats',
             'health',
+            'shards'
         ]
     )
     parser.add_argument(
         "--metric",
         help="specifiy metric"
     )
+    # The below options will be used as parameters in the API call.
+    parser.add_argument(
+        "--parameters",
+        help="Seprated parmaters to be used with the API call. ';' seperator. "
+        "Example format=json;bytes=kb;index=index_name;nodes=nodes_1,node_2"
+    )
     parser.add_argument(
         "--nodes",
-        help="limit results to a particular node. Multiple nodes should be comma seperated"
+        help="comma seperated list of nodes. Limit the returned data to given nodes"
     )
     # These options are specified in the config file but can be overridden on the CLI
     parser.add_argument(
@@ -179,6 +187,9 @@ def validate_args(args):
         ],
         'nodes': [
             'stats'
+        ],
+        'cat': [
+            'shards'
         ]
     }
 
@@ -271,13 +282,41 @@ class ESWrapper:
                 items.append((new_key, value))
         return dict(items)
 
+    def shards_per_node(self, api_response, nodes):
+        """Get count of all shards that match the given node"""
+        count = 0
+        for item in api_response:
+            if item['node'] in nodes:
+                count += 1
+        return count
+
     def send_requests(self, args):
-        """GET CLUSTER METRICS"""
+        """GET METRICS"""
+
         api_call = getattr(self.es_config, args.api)
-        if args.nodes:
-            api_response = getattr(api_call, args.endpoint)(node_id=args.nodes)
+
+        if args.parameters:
+            api_parameters = dict(
+                param.split("=")
+                for param in args.parameters.split(";")
+            )
+            if not api_parameters['format']:
+                api_parameters['format'] = "json"
         else:
-            api_response = getattr(api_call, args.endpoint)()
+            api_parameters = dict({"format": "json"})
+
+        try:
+            api_response = getattr(api_call, args.endpoint)(**api_parameters)
+        # Elasticsearch serialization error
+        except exceptions.SerializationError:
+            logging.error("SerializationError. "
+                          "Check that %s is a valid format for this API.",
+                          api_parameters['format']
+                          )
+            sys.exit(1)
+        except:
+            logging.error("Problem calling API. Check CLI arguments and parameters then try again")
+            sys.exit(1)
 
         try:
             # Handle "null" metrics
@@ -290,6 +329,14 @@ class ESWrapper:
                 response = getattr(self, args.metric)(api_response)
                 return response
             # Get Metric
+            elif args.metric == "shards_per_node":
+                try:
+                    response = self.shards_per_node(api_response, args.nodes)
+                    return response
+                except TypeError:
+                    logging.error("Cannot iterate through response. "
+                                  "Likley cause: '--nodes' has not been specified. Terminating")
+                    sys.exit(1)
             else:
                 response = self.convert_flatten(api_response)
                 logging.info("'%s': %s", args.metric, response[args.metric])
