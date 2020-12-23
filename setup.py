@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="zabbix_elasticsearch",
-    version="0.5.0",
+    version="0.5.1",
     author="Steve Simpson",
     author_email="stephen.simpson1991@gmail.com",
     description="Zabbix Monitoring for Elasticsearch",
