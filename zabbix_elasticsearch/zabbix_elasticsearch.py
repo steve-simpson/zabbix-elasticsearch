@@ -76,7 +76,7 @@ def parse_conf(argv=None):
             'indices',
             'nodes',
             'cat',
-            '_all'
+            'ilm'
         ]
     )
     parser.add_argument(
@@ -86,7 +86,7 @@ def parse_conf(argv=None):
             'stats',
             'health',
             'shards',
-            '_ilm/explain'
+            'explain_lifecycle'
         ]
     )
     parser.add_argument(
@@ -193,8 +193,8 @@ def validate_args(args):
         'cat': [
             'shards'
         ],
-        '_all': [
-            '_ilm/explain'
+        'ilm': [
+            'explain_lifecycle'
         ]
     }
 
@@ -298,24 +298,17 @@ class ESWrapper:
     def ilm_explain(self, api_response):
         """Loop through the index response and look for ERROR steps. Return 1 is any ERRORS found"""
         for index in api_response["indices"].keys():
-            print(index)
-            if api_response["indices"][index]["managed"] == "true":
-                print("true")
+            if api_response["indices"][index]["managed"] == True:
                 if api_response["indices"][index]["step"] == "ERROR":
-                    print("error")
                     res = 1
                     return res
                 else:
-                    print("no error")
-                    res = 0
-                    return res
+                    pass
+        return res
 
     def send_requests(self, args):
         """GET METRICS"""
-
         api_call = getattr(self.es_config, args.api)
-        print(api_call)
-
         if args.parameters:
             api_parameters = dict(
                 param.split("=")
@@ -328,7 +321,6 @@ class ESWrapper:
 
         try:
             api_response = getattr(api_call, args.endpoint)(**api_parameters)
-            print(api_response)
         # Elasticsearch serialization error
         except exceptions.SerializationError:
             logging.error("SerializationError. "
@@ -360,10 +352,8 @@ class ESWrapper:
                                   "Likley cause: '--nodes' has not been specified. Terminating")
                     sys.exit(1)
             elif args.metric == "ilm_explain":
-                print("ilm_explain == true")
                 try:
                     response = self.ilm_explain(api_response)
-                    print(response)
                     return response
                 except:
                     logging.error("ILM Explain Error")
@@ -383,12 +373,10 @@ def main(argv=None):
     """Main Execution path"""
     if argv is None:
         argv = sys.argv
-
     args = parse_conf()
     configure_logging(args.loglevel, args.logstdout, args.logdir, args.logfilename)
     validate_args(args)
     es_wrapper = ESWrapper(args)
-
     try:            
         result = es_wrapper.send_requests(args)
         print(result)
