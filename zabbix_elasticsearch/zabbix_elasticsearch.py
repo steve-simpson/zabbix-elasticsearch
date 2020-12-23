@@ -304,7 +304,7 @@ class ESWrapper:
                     return res
                 else:
                     pass
-        return res
+        return 0
 
     def send_requests(self, args):
         """GET METRICS"""
