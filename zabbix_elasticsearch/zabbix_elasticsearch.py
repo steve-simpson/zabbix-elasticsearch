@@ -75,7 +75,8 @@ def parse_conf(argv=None):
             'cluster',
             'indices',
             'nodes',
-            'cat'
+            'cat',
+            '_all'
         ]
     )
     parser.add_argument(
@@ -84,7 +85,8 @@ def parse_conf(argv=None):
         choices=[
             'stats',
             'health',
-            'shards'
+            'shards',
+            'ilm/_explain'
         ]
     )
     parser.add_argument(
@@ -190,6 +192,9 @@ def validate_args(args):
         ],
         'cat': [
             'shards'
+        ],
+        '_all': [
+            '_ilm/explain'
         ]
     }
 
@@ -290,6 +295,15 @@ class ESWrapper:
                 count += 1
         return count
 
+    def ilm_explain(self, api_response):
+        """Loop through the index response and look for ERROR steps. Return 1 is any ERRORS found"""
+        for index in api_response["indices"].keys():
+           if api_response["indices"][index]["managed"] == "true":
+               if api_response["indices"][index]["step"] == "ERROR":
+                   res = 1
+               else:
+                   res = 0
+
     def send_requests(self, args):
         """GET METRICS"""
 
@@ -337,6 +351,13 @@ class ESWrapper:
                     logging.error("Cannot iterate through response. "
                                   "Likley cause: '--nodes' has not been specified. Terminating")
                     sys.exit(1)
+            elif args.metric == "ilm_explain":
+                try:
+                    response = self.ilm_explain(api_response)
+                    return response
+                except:
+                    logging.error("ILM Explain Error")
+                    sys.exit(1)
             else:
                 response = self.convert_flatten(api_response)
                 logging.info("'%s': %s", args.metric, response[args.metric])
@@ -358,7 +379,7 @@ def main(argv=None):
     validate_args(args)
     es_wrapper = ESWrapper(args)
 
-    try:
+    try:            
         result = es_wrapper.send_requests(args)
         print(result)
         sys.exit(0)
