@@ -86,7 +86,7 @@ def parse_conf(argv=None):
             'stats',
             'health',
             'shards',
-            'ilm/_explain'
+            '_ilm/explain'
         ]
     )
     parser.add_argument(
